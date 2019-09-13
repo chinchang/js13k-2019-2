@@ -1,0 +1,36 @@
+{
+  "name": "js13k-2019-2",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.html",
+  "scripts": {
+    "start": "parcel index.html --https",
+    "build": "rm -rf dist && parcel build index.html --no-source-maps && mv dist public",
+    "check-file-size": "node ./scripts/check-file-size.js",
+    "inline-build": "html-inline -i ./public/index.html -o ./public/index2.html && mv ./public/index2.html ./public/index.html",
+    "build-zipped": "npm run build && npm run inline-build && node ./scripts/zip-file.js",
+    "party": "npm run build-zipped && npm run check-file-size"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chinchang/js13k-2019-2.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/chinchang/js13k-2019-2/issues"
+  },
+  "homepage": "https://github.com/chinchang/js13k-2019-2#readme",
+  "dependencies": {
+    "parcel-bundler": "^1.12.3"
+  },
+  "browserslist": [
+    "last 3 Chrome versions"
+  ],
+  "devDependencies": {
+    "archiver": "^3.1.1",
+    "chalk": "^2.4.2",
+    "html-inline": "^1.2.0"
+  }
+}
