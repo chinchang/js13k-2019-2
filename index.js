@@ -1,5 +1,3 @@
-// import { Particle } from "./particle.js";
-// import { Bomb } from "./bomb.js";
 import { W, H, setStyle, random, randomf, createElement } from "./utils.js";
 import { playSound, playWinSound } from "./sfx.js";
 
@@ -62,8 +60,8 @@ const sounds = {
 };
 
 function updateScoreUi(score) {
-  easyHighScoreEl.textContent = highScore[0] ? `${highScore[0]}s` : "-";
-  hardHighScoreEl.textContent = highScore[1] ? `${highScore[1]}s` : "-";
+  // easyHighScoreEl.textContent = highScore[0] ? `${highScore[0]}s` : "-";
+  // hardHighScoreEl.textContent = highScore[1] ? `${highScore[1]}s` : "-";
 }
 function changeScreen(name) {
   screens.forEach(screen => screen.classList.remove("visible"));
@@ -73,8 +71,8 @@ function changeScreen(name) {
   // cleanup
   hideMessage();
 
-  window.removeEventListener("keyup", gameStartTriggerHandler);
-  window.removeEventListener("click", gameStartTriggerHandler);
+  // window.removeEventListener("keyup", gameStartTriggerHandler);
+  // window.removeEventListener("click", gameStartTriggerHandler);
 
   if (name !== "game") {
     grid = [];
@@ -160,12 +158,14 @@ function blast(position) {
 AFRAME.registerComponent("tile-listener", {
   init: function() {
     var el = this.el;
-    el.addEventListener("click", function(evt) {
-      // console.log(el.getAttribute("position"), 9, el.object3D.position);
-      blast(el.object3D.getWorldPosition());
-      // el.querySelector('[data-id="count"]').setAttribute("value", ++el.count);
-      setTileValue(el);
-    });
+    if (el.tileType !== "bomb") {
+      el.addEventListener("click", function(evt) {
+        // console.log(el.getAttribute("position"), 9, el.object3D.position);
+        blast(el.object3D.getWorldPosition());
+        // el.querySelector('[data-id="count"]').setAttribute("value", ++el.count);
+        setTileValue(el);
+      });
+    }
   }
 });
 AFRAME.registerComponent("blast-particle", {
@@ -214,6 +214,60 @@ AFRAME.registerComponent("blast-particle", {
       x: currentPosition.x + directionVec3.x,
       y: currentPosition.y + directionVec3.y,
       z: currentPosition.z + directionVec3.z
+    });
+  }
+});
+
+AFRAME.registerComponent("win-blast-particle", {
+  init: function() {
+    var el = this.el;
+
+    const pos = el.object3D.getWorldPosition();
+
+    this.targetPosition = new THREE.Vector3(pos.x, 0, pos.z);
+    this.directionVec3 = new THREE.Vector3();
+    this.speed = 5;
+  },
+  tick: function(time, timeDelta) {
+    var directionVec3 = this.directionVec3;
+    const rot = this.el.object3D.rotation;
+
+    // Grab position vectors (THREE.Vector3) from the entities' three.js objects.
+    var targetPosition = this.targetPosition;
+    var currentPosition = this.el.object3D.position;
+
+    // Subtract the vectors to get the direction the entity should head in.
+    directionVec3.copy(targetPosition).sub(currentPosition);
+
+    // Calculate the distance.
+    var distance = directionVec3.length();
+
+    // Don't go any closer if a close proximity has been reached.
+    if (distance < 0.1) {
+      this.el.remove();
+      return;
+    }
+
+    // Scale the direction vector's magnitude down to match the speed.
+    var factor = this.speed / distance;
+    ["x", "y", "z"].forEach(function(axis) {
+      directionVec3[axis] *= factor * (timeDelta / 1000);
+    });
+
+    // console.log(directionVec3);
+
+    // Translate the entity in the direction towards the target.
+    this.el.setAttribute("position", {
+      x: currentPosition.x + directionVec3.x,
+      y: currentPosition.y + directionVec3.y,
+      z: currentPosition.z + directionVec3.z
+    });
+
+    // Translate the entity in the direction towards the target.
+    this.el.setAttribute("rotation", {
+      x: rot.x,
+      y: rot.y + randomf(-10, 10) * timeDelta,
+      z: rot.z + randomf(-10, 10) * timeDelta
     });
   }
 });
@@ -329,14 +383,6 @@ async function hideMessage() {
   document.body.classList.remove("message-anim-1");
 }
 function setupGame(e, level = 0) {
-  async function rotateCamera() {
-    const el = document.querySelector('[data-screen="game"]');
-    el.style.transition = "none";
-    el.style.perspectiveOrigin = `1170px ${H / 2}px`;
-    await wait(10);
-    el.style.transition = null;
-    el.style.perspectiveOrigin = `${W / 2}px ${H / 2}px`;
-  }
   if (e) {
     level = parseInt(e.currentTarget.dataset.level, 10);
     e.stopPropagation();
@@ -345,12 +391,12 @@ function setupGame(e, level = 0) {
   gen(level);
   // rotateCamera();
   changeScreen("game");
-  // startGame();
+  startGame();
 
-  showMessage("Click/Tap anywhere or press any key to start").then(() => {
-    window.addEventListener("keyup", gameStartTriggerHandler, { once: true });
-    window.addEventListener("click", gameStartTriggerHandler, { once: true });
-  });
+  // showMessage("Click/Tap anywhere or press any key to start").then(() => {
+  //   window.addEventListener("keyup", gameStartTriggerHandler, { once: true });
+  //   window.addEventListener("click", gameStartTriggerHandler, { once: true });
+  // });
 }
 
 function gameStartTriggerHandler() {
@@ -365,55 +411,21 @@ async function startGame() {
 
   document.body.classList.add("bomb-place-anim-1");
 
-  bombs.forEach(bomb => {
+  /*  bombs.forEach(bomb => {
     setTimeout(() => {
       playSound("laser");
     }, random(0, 600));
-  });
-
-  await wait(500);
-
-  document.body.classList.add("bomb-place-anim-2");
-  shake({ time: 0.5 });
-  /* bombs.forEach(bomb => {
-    const bound = bomb.getBoundingClientRect();
-    for (let i = random(5, 8); i--; ) {
-      entities.push(
-        new Particle({
-          height: random(5, 15),
-          width: random(5, 15),
-          x: random(bound.left, bound.left + bound.width),
-          y: random(bound.top, bound.top + bound.height),
-          vx: random(-10, 10),
-          vy: -random(20, 55),
-          isConfetti: true,
-          gravity: 0.2,
-          friction: 0.88,
-          alphaSpeed: -0.025,
-          scale: 0.3 + Math.random(0, 1),
-          angularSpeed: { x: random(-5, 5), y: 0, z: 0 },
-          color: "#f00",
-          timeToDie: 0.7
-        })
-      );
-    }
-
-    setTimeout(() => {
-      playSound("explosion");
-    }, random(0, 500));
   }); */
 
-  await wait(500);
+  shake({ time: 0.5 });
 
-  document.body.classList.add("bomb-place-anim-3");
-  document.body.classList.add("game-started");
   gameState = GAME_STATES.STARTED;
   startTime = Date.now();
 }
-function setTileLabel(el, row, col, value) {
-  el.setAttribute("aria-label", `Row ${row}, Column ${col}, Value ${value}`);
-}
+
 function setTileValue(el, value, diff = 1) {
+  if (gameState !== GAME_STATES.STARTED) return;
+
   input[el.posX][el.posY] =
     value !== undefined ? value : input[el.posX][el.posY] + diff;
   input[el.posX][el.posY] %= 9;
@@ -433,122 +445,49 @@ function setTileValue(el, value, diff = 1) {
 
   playSound("hit");
 
-  // blast on tile
-  /* const bound = el.getBoundingClientRect();
-  for (let i = random(5, 15); i--; ) {
-    entities.push(
-      new Particle({
-        height: 20,
-        width: 20,
-        x: random(bound.left, bound.left + bound.width),
-        y: random(bound.top, bound.top + bound.height),
-        vx: random(-10, 10),
-        vy: -random(20, 55),
-        isConfetti: true,
-        gravity: 0.2,
-        friction: 0.88,
-        alphaSpeed: -0.025,
-        scale: 0.3 + Math.random(0, 1),
-        angularSpeed: { x: random(-5, 5), y: 0, z: random(-20, 25) },
-        color: "#5d6f41",
-        timeToDie: 0.4
-      })
-    );
-  } */
-
   console.log(grid, input);
   if (checkWin()) {
     const time = (Date.now() - startTime) / 1000;
     gameState = GAME_STATES.ENDED;
-    setTimeout(async () => {
-      await showMessage(
-        `<p>You completed the level in <strong>${time} seconds!</strong></p>
-        <p>
-          <button class="btn" onclick="window.changeScreen('menu')">👈🏽 Back to menu</button>
-          <button class="btn" onclick="window.tweetScore(${lastGameScore}, ${currentLevel})">🐦 Tweet your score!</button>
-        </p>`
-      );
-      document.querySelector(".message button").focus();
-    }, 10);
+    document
+      .querySelector("#score-element")
+      .setAttribute("value", `You won in ${time.toFixed(1)} seconds!`);
 
     winBlast();
     playWinSound();
     saveScores(time);
   }
 }
-function tileClickHandler(e) {
-  if (gameState !== GAME_STATES.STARTED) return;
-  const el = e.target;
-  if (el.className.match(/tile/) && el.tagName === "BUTTON") {
-    setTileValue(el, undefined, e.button === 0 ? 1 : -1);
-  }
-}
-window.oncontextmenu = e => {
-  if (e.target.className.match(/tile/)) {
-    tileClickHandler(e);
-    return false; // cancel default menu
-  }
-};
-
-/* function blast({ n = 20, minX = 0, maxX = W, minY = 0, maxY = H, ...props }) {
-  for (let i = n; i--; ) {
-    entities.push(
-      new Particle({
-        x: minX === maxX ? minX : random(minX, maxX),
-        y: minY === maxY ? minY : random(minY, maxY),
-        vy: -random(40, 60),
-        vx: random(-40, 40),
-        isConfetti: true,
-        gravity: 0.5,
-        friction: 0.88,
-        color: `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)} )`,
-        ...props
-      })
-    );
-  }
-} */
 
 async function winBlast() {
-  blast({
-    n: 30,
-    minX: W / 4 - 50,
-    maxX: W / 4 + 50,
-    minY: 100,
-    maxY: H - 100
-  });
+  let position = document
+    .querySelector("#tileContainer")
+    .object3D.getWorldPosition();
+
+  const scene = document.querySelector("a-scene");
+  for (let i = random(20, 70); i--; ) {
+    let el = document.createElement("div");
+    let radius = Math.random() * 0.1;
+    el.innerHTML = `
+      <a-plane color="rgb(${random(10, 255)},${random(10, 255)},${random(
+      10,
+      255
+    )})" width="0.2" height="0.2" position="${position.x +
+      randomf(-7, 7)} ${position.y + 10} ${position.z +
+      randomf(-7, 7)}" win-blast-particle></a-plane>
+      `;
+    el = el.children[0];
+    scene.append(el);
+  }
+
   playSound("winExplosion");
   await wait(500);
-  blast({
-    n: 30,
-    minX: (W * 3) / 4 - 50,
-    maxX: (W * 3) / 4 + 50,
-    minY: 100,
-    maxY: H - 100
-  });
+
   playSound("winExplosion");
 
   await wait(1500);
   playSound("winExplosion");
-
-  blast({
-    n: 20,
-    minX: W / 2 - 200,
-    maxX: W / 2 + 200,
-    minY: 100,
-    maxY: H - 100
-  });
 }
-window.onclick = e => {
-  // winBlast();
-  if (!grid.length) {
-    return;
-  }
-  if (currentScreen === "game") {
-    if (gameState === GAME_STATES.STARTED) {
-      tileClickHandler(e);
-    }
-  }
-};
 
 function navigate(el, dir) {
   function getVerticalEl(el, x, y) {
@@ -585,41 +524,6 @@ function navigate(el, dir) {
     nextEl.focus();
   }
 }
-
-window.onkeyup = e => {
-  // console.log(e.key);
-  const target = e.target;
-
-  if (gameState !== GAME_STATES.STARTED) {
-    return;
-  }
-
-  if (!target.className.match(/tile/)) {
-    if (["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)) {
-      // tileContainer.querySelector(".tile:not(.cover):not(.hole)").focus();
-    }
-  }
-
-  let num = parseInt(e.key, 10);
-  if (!isNaN(num)) {
-    setTileValue(target, num);
-  }
-
-  if (e.key === "ArrowRight") {
-    navigate(e.target, "right");
-  } else if (e.key === "ArrowLeft") {
-    navigate(e.target, "left");
-  } else if (e.key === "ArrowDown") {
-    navigate(e.target, "down");
-  } else if (e.key === "ArrowUp") {
-    navigate(e.target, "up");
-  }
-
-  // to prevent scrolling
-  if (["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(e.key)) {
-    e.preventDefault();
-  }
-};
 
 function shake({ time, el = document.body, shakeIntensity = 15 }) {
   let shakeTime = time;
@@ -676,25 +580,6 @@ function saveScores(score) {
   }
   lastGameScore = score;
 }
-function tweetScore(score, level) {
-  const words = [
-    "Yay!",
-    "Wohoo!",
-    "Yuhoo!",
-    "Check it out!",
-    "Rad!",
-    "Dang!",
-    "Woah!",
-    "Beat this!"
-  ];
-  window.open(
-    `http://twitter.com/share?url=${location.href}&text=🎮 ${
-      words[random(0, words.length)]
-    } I finished "Repeewsenim" in just ${score} seconds in ${
-      level ? "hard" : "easy"
-    } mode! 🔥💣&hashtags=js13k,indiedev&related=chinchang457`
-  );
-}
 
 function gameLoop() {
   const now = Date.now();
@@ -732,10 +617,8 @@ function init() {
   // menu gameboard
   // gen(0, window.menuTileContainer, true);
   // gameLoop();
-  // updateScoreUi();
   window.setupGame = setupGame;
   window.changeScreen = changeScreen;
-  window.tweetScore = tweetScore;
 }
 // playWinSound();
 
