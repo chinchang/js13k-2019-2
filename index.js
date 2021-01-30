@@ -284,7 +284,7 @@ AFRAME.registerComponent("cursor-listener", {
 function gen(level, container = window.tileContainer) {
   n = levels[level].n;
   const numMines = levels[level].mines;
-  cellSize = ~~((Math.min(W, H) * 0.014) / n);
+  cellSize = ~~((Math.min(W, H) * 0.025) / n);
   document.documentElement.style.setProperty("--unit", `${cellSize}px`);
   setStyle(container, {
     // left: `${cellSize * n * 0.15}px`,
